@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Lyceum of Alabang Campus Navigation System">
+  <title>Lyceum of Alabang | Campus Navigation</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Anton&family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="navbar">
+    <a href="#" class="brand" aria-label="Lyceum of Alabang home">
+      <span class="brand-mark">L</span>
+      <span>LYCEUM <small>OF ALABANG</small></span>
+    </a>
+
+    <button class="menu-toggle" id="menuToggle" aria-label="Open navigation menu" aria-expanded="false">
+      <span></span><span></span><span></span>
+    </button>
+
+    <nav class="nav-links" id="navLinks">
+      <a href="PAGES/1stpage.html" class="nav-explore" id="navExplore">Explore Campus</a>
+    </nav>
+  </header>
+
+  <main id="home">
+    <section class="hero">
+      <div class="comic-shape shape-one"></div>
+      <div class="comic-shape shape-two"></div>
+      <div class="dots"></div>
+
+      <div class="hero-content">
+        <p class="eyebrow">WELCOME TO</p>
+        <h1>LYCEUM<br><span>OF ALABANG</span></h1>
+        <p class="hero-subtitle">CAMPUS<br>NAVIGATION<br>SYSTEM</p>
+
+        <!-- EXPLORE SHORTCUT BUTTON LINKING TO 1stpage.html -->
+        <a href="PAGES/1stpage.html" class="explore-btn" id="exploreBtn" style="text-decoration: none; display: inline-flex; align-items: center; justify-content: center;">
+          EXPLORE <span aria-hidden="true">→</span>
+        </a>
+      </div>
+
+      <div class="speech-bubble bubble-top">FIND<br>YOUR WAY!</div>
+      <div class="speech-bubble bubble-bottom">LET'S<br>EXPLORE!</div>
+    </section>
+
+    <section class="campus-panel" id="features">
+      <div class="section-heading">
+        <p class="eyebrow">QUICK ACCESS</p>
+        <h2>Campus at a glance</h2>
+        <p>Find important places around campus without getting lost.</p>
+      </div>
+    </section>
+
+    <section class="about" id="about">
+      <div>
+        <p class="eyebrow">ABOUT THE SYSTEM</p>
+        <h2>Navigate campus with less hassle.</h2>
+      </div>
+      <p>
+        This interface is designed to make campus navigation simple on phones,
+        tablets, laptops, and desktop computers. It helps students and visitors
+        look for rooms, buildings, facilities, and directions around the campus.
+      </p>
+    </section>
+  </main>
+
+  <script src="script.js"></script>
+</body>
+</html>

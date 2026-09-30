@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Campus Map - Ground Floor</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Font: Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+    
+    <style>
+        * {
+            box-sizing: border-box;
+            border-radius: 0px !important; /* Strict requirement: All shapes square */
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3cc3b; /* Reference Yellow */
+            color: #000000;
+            user-select: none;
+            margin: 0;
+            padding: 0;
+            overflow-x: auto;
+        }
+
+        /* Map Canvas Relative Container */
+        .map-canvas {
+            width: 1000px;
+            height: 680px;
+            background-color: #f3cc3b;
+            position: relative;
+            border: 3px solid #000000;
+            box-shadow: 0 12px 32px rgba(0, 0, 0, 0.25);
+            margin: 0 auto;
+            overflow: hidden;
+        }
+
+        /* Strict Building Box Styling */
+        .map-box {
+            background-color: #ffffff;
+            border: 2px solid #000000;
+            color: #000000;
+            font-weight: 800;
+            font-size: 11px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            line-height: 1.2;
+            position: absolute;
+            cursor: pointer;
+            transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+            box-shadow: 0 2px 0px rgba(0,0,0,0.15);
+            padding: 4px;
+            text-transform: uppercase;
+        }
+
+        .map-box:hover {
+            transform: scale(1.025);
+            z-index: 30;
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
+            background-color: #ffffff;
+        }
+
+        /* Rounded elements as shown in the map layout (e.g., Aquarium / Entrance Bench) */
+        .map-box-rounded {
+            border-radius: 12px !important;
+        }
+
+        /* Interactive Yellow Action Buttons */
+        .yellow-action-btn {
+            background-color: #f3cc3b;
+            color: #000000;
+            border: 2px solid #000000;
+            font-weight: 800;
+            font-size: 11px;
+            letter-spacing: 0.05em;
+            padding: 6px 12px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-transform: uppercase;
+            box-shadow: 0 2px 0px rgba(0,0,0,0.2);
+            position: absolute;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 25;
+            text-decoration: none;
+        }
+
+        /* Hover turns background BLACK and text YELLOW */
+        .yellow-action-btn:hover {
+            background-color: #000000 !important;
+            color: #f3cc3b !important;
+            border-color: #000000 !important;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+            transform: translateY(-2px);
+        }
+
+        /* Grid Chair Styling for Classroom/Hall Area */
+        .grid-chair {
+            width: 24px;
+            height: 24px;
+            border: 2px solid #000000;
+            background-color: #ffffff;
+            transition: all 0.2s ease;
+        }
+        .grid-chair:hover {
+            background-color: #000000;
+        }
+
+        /* Search highlighting animation */
+        .search-highlight {
+            background-color: #2563eb !important; /* Bright active blue */
+            color: #ffffff !important;
+            border-color: #000000 !important;
+            animation: searchPulse 1s ease-in-out infinite alternate;
+            z-index: 40 !important;
+        }
+
+        @keyframes searchPulse {
+            0% {
+                box-shadow: 0 0 0px 0px rgba(37, 99, 235, 0.8);
+                transform: scale(1);
+            }
+            100% {
+                box-shadow: 0 0 24px 8px rgba(37, 99, 235, 0.9);
+                transform: scale(1.05);
+            }
+        }
+
+        .dimmed {
+            opacity: 0.25 !important;
+            filter: grayscale(80%);
+        }
+
+        /* Vertical text rotation */
+        .writing-vertical {
+            writing-mode: vertical-lr;
+            transform: rotate(180deg);
+            letter-spacing: 0.08em;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between p-3 md:p-6 bg-[#f3cc3b]">
+
+    <header class="max-w-[1000px] w-full mx-auto mb-4 bg-white border-2 border-black p-3 shadow-lg flex flex-col sm:flex-row items-center justify-between gap-3">
+        <!-- Brand Title -->
+        <div class="flex items-center gap-3">
+            <div class="w-8 h-8 bg-black flex items-center justify-center border border-black">
+                <span class="text-yellow-400 font-black text-sm">MAP</span>
+            </div>
+            <div>
+                <h1 class="text-sm font-black uppercase tracking-wider text-black leading-none">Campus Navigation System</h1>
+                <p class="text-[10px] font-bold text-gray-600">Ground Floor Layout & Navigation</p>
+            </div>
+        </div>
+
+        <!-- Search Bar -->
+        <div class="flex items-center gap-2 w-full sm:w-auto">
+            <div class="relative w-full sm:w-80">
+                <input 
+                    type="text" 
+                    id="searchInput" 
+                    placeholder="Search place (e.g. Registrar, Aquarium, Gym)..." 
+                    class="w-full px-3 py-2 text-xs font-black bg-yellow-50 text-black border-2 border-black focus:outline-none focus:bg-white placeholder-gray-500"
+                    oninput="handleSearch()"
+                />
+                <button 
+                    id="clearBtn" 
+                    onclick="clearSearch()" 
+                    class="hidden absolute right-2 top-1/2 -translate-y-1/2 text-[10px] bg-black text-yellow-400 font-black px-1.5 py-0.5 border border-black">
+                    CLEAR
+                </button>
+            </div>
+            <button onclick="resetView()" class="bg-black text-yellow-400 text-xs font-black px-3 py-2 border-2 border-black hover:bg-yellow-400 hover:text-black transition-colors uppercase">
+                Reset
+            </button>
+        </div>
+    </header>
+
+    <main class="w-full overflow-x-auto flex justify-center my-auto py-2">
+        
+        <!-- ABSOLUTE CANVAS CONTAINER (Matching Image Layout) -->
+        <div class="map-canvas" id="mapCanvas">
+
+            <!-- MAIN ENCLOSURE BORDER -->
+            <div class="absolute" style="top: 20px; left: 20px; width: 960px; height: 380px; border: 3px solid #000000; border-radius: 20px !important; pointer-events: none;"></div>
+
+            <!-- TOP LEFT SECTION -->
+            <!-- Basic Education and College Building -->
+            <div 
+                id="loc-basic-edu-building" 
+                class="map-box" 
+                style="top: 35px; left: 35px; width: 155px; height: 130px; font-size: 11px;"
+                onclick="openLocationModal('Basic Education and College Building', 'Main academic facility housing basic education and college departments.')">
+                BASIC EDUCATION<br>AND COLLEGE<br>BUILDING
+            </div>
+
+            <!-- Stairs to 2nd Floor -->
+            <div 
+                id="loc-stairs-2nd" 
+                class="map-box" 
+                style="top: 35px; left: 200px; width: 205px; height: 150px; font-size: 13px;"
+                onclick="openLocationModal('Stairs to 2nd Floor', 'Primary staircase providing access to upper level classrooms and offices.')">
+                STAIRS TO 2<sup>ND</sup> FLOOR
+            </div>
+
+            <!-- Women's Comfort Room -->
+            <div 
+                id="loc-womens-cr" 
+                class="map-box" 
+                style="top: 35px; left: 415px; width: 125px; height: 60px; font-size: 10px;"
+                onclick="openLocationModal('Women\'s Comfort Room', 'Restroom facilities designated for women.')">
+                WOMEN'S<br>COMFORT ROOM
+            </div>
+
+            <!-- Empty Box under Women's CR -->
+            <div 
+                id="loc-cr-sub-office" 
+                class="map-box" 
+                style="top: 100px; left: 415px; width: 125px; height: 85px;"
+                onclick="openLocationModal('Faculty / Office Area', 'Departmental office and utility space.')">
+            </div>
+
+            <!-- Bench (Vertical) -->
+            <div 
+                id="loc-bench-top" 
+                class="map-box" 
+                style="top: 100px; left: 545px; width: 30px; height: 85px; font-size: 10px;"
+                onclick="openLocationModal('Bench', 'Seating area along the hallway.')">
+                <span class="writing-vertical">BENCH</span>
+            </div>
+
+            <!-- Entrance to Gym Text -->
+            <div 
+                id="loc-gym-entrance"
+                class="absolute flex items-center justify-center font-black text-[10px] text-black tracking-wider uppercase cursor-pointer"
+                style="top: 40px; left: 560px; width: 110px; height: 30px;"
+                onclick="openLocationModal('Entrance to Gym', 'Gateway leading directly to the campus gymnasium facility.')">
+                ENTRANCE<br>TO GYM
+            </div>
+
+
+            <!-- PROCEED BUTTONS (Interactive Action Buttons) -->
+           <a 
+                href="7thpage.html" 
+                class="yellow-action-btn" 
+                style="top: 175px; left: 35px; width: 75px; height: 26px; font-size: 9px;">
+                PROCEED
+            </a>
+            <!-- Shortcut Button Below Stairs to 2nd Floor -> 3rdpage.html -->
+            <a 
+                href="3rdpage.html" 
+                class="yellow-action-btn" 
+                style="top: 195px; left: 260px; width: 110px; height: 26px; font-size: 8px;">
+                GO TO 2ND FLOOR
+            </a>
+
+            <!-- Changed Button Beside Entrance to Gym -> 4thpage.html -->
+            <a 
+                href="4thpage.html" 
+                class="yellow-action-btn" 
+                style="top: 40px; left: 680px; width: 100px; height: 26px; font-size: 8px;">
+                GO TO GYM
+            </a>
+
+
+            <!-- WEST/LEFT SIDE WALL OFFICES -->
+            <!-- Accreditation Office -->
+            <div 
+                id="loc-accreditation" 
+                class="map-box" 
+                style="top: 230px; left: 35px; width: 35px; height: 70px; font-size: 8px;"
+                onclick="openLocationModal('Accreditation Office', 'Office handling academic evaluations and quality assurance compliance.')">
+                <span class="writing-vertical">ACCREDITATION<br>OFFICE</span>
+            </div>
+
+            <!-- Office of the VP -->
+            <div 
+                id="loc-office-vp" 
+                class="map-box" 
+                style="top: 310px; left: 35px; width: 35px; height: 80px; font-size: 8px;"
+                onclick="openLocationModal('Office of the VP', 'Executive office of the Vice President.')">
+                <span class="writing-vertical">OFFICE OF THE VP</span>
+            </div>
+
+
+            <!-- SEATING GRID (Auditorium / Gym Seating) -->
+            <div class="absolute grid grid-cols-6 gap-1.5" style="top: 95px; left: 695px;">
+                <!-- 6 columns x 5 rows grid = 30 chairs -->
+                <script>
+                    for(let i=1; i<=30; i++) {
+                        document.write(`<div class="grid-chair" title="Seat #${i}"></div>`);
+                    }
+                </script>
+            </div>
+
+            <!-- EAST/RIGHT SIDE WALL OFFICES -->
+            <!-- Finance Office -->
+            <div 
+                id="loc-finance" 
+                class="map-box" 
+                style="top: 110px; left: 915px; width: 32px; height: 160px; font-size: 9px;"
+                onclick="openLocationModal('Finance Office', 'Student accounting, tuition fee payments, and financial clearances.')">
+                <span class="writing-vertical">FINANCE OFFICE</span>
+            </div>
+
+            <div 
+                id="loc-finance-sub" 
+                class="map-box" 
+                style="top: 280px; left: 915px; width: 32px; height: 35px;"
+                onclick="openLocationModal('Finance Counter', 'Cashier and window transactions.')">
+            </div>
+
+
+            <!-- REGISTRAR & ACADEMIC DEPARTMENTS SECTION (Bottom Right inside main hall) -->
+            <div class="absolute font-black text-xs tracking-widest text-black" style="top: 285px; left: 660px;">
+                REGISTRAR
+            </div>
+
+            <!-- BSBA / BSA / EDUC / PTCP -->
+            <div 
+                id="loc-dept-bsba" 
+                class="map-box" 
+                style="top: 305px; left: 525px; width: 135px; height: 40px; font-size: 9px;"
+                onclick="openLocationModal('BSBA / BSA / EDUC / PTCP Department', 'Registrar for Business Administration, Accountancy, and Education programs.')">
+                BSBA/BSA/EDUC<br>/PTCP
+            </div>
+
+            <!-- BSHM / BSTM -->
+            <div 
+                id="loc-dept-bshm" 
+                class="map-box" 
+                style="top: 350px; left: 525px; width: 135px; height: 40px; font-size: 10px;"
+                onclick="openLocationModal('BSHM / BSTM Department', 'Registrar for Hospitality and Tourism Management department.')">
+                BSHM/BSTM
+            </div>
+
+            <!-- BSIT / BSCS / BSIE / BSCPE -->
+            <div 
+                id="loc-dept-bsit" 
+                class="map-box" 
+                style="top: 305px; left: 665px; width: 120px; height: 85px; font-size: 9px;"
+                onclick="openLocationModal('BSIT / BSCS / BSIE / BSCPE Department', 'Registrar for College of Information Technology, Computer Science, and Engineering.')">
+                BSIT/BSCS/BSIE<br>/BSCPE
+            </div>
+
+            <!-- BSCRIM / BSPSYCH -->
+            <div 
+                id="loc-dept-bscrim" 
+                class="map-box" 
+                style="top: 305px; left: 790px; width: 125px; height: 40px; font-size: 9px;"
+                onclick="openLocationModal('BSCRIM / BSPSYCH Department', 'Registrar for Criminology and Psychology department.')">
+                BSCRIM/BSPSYCH
+            </div>
+
+            <!-- Signing of Clearance -->
+            <div 
+                id="loc-clearance" 
+                class="map-box" 
+                style="top: 350px; left: 790px; width: 125px; height: 40px; font-size: 9px;"
+                onclick="openLocationModal('Signing of Clearance', 'Designated counter for semester clearance validations and signing.')">
+                SIGNING OF CLEARANCE
+            </div>
+
+
+            <!-- EXIT & ENTRANCE LABELS & BENCH (Bottom edge of main hall) -->
+            <div 
+                id="loc-exit-label"
+                class="absolute font-black text-xs text-black cursor-pointer" 
+                style="top: 383px; left: 160px;"
+                onclick="openLocationModal('EXIT', 'Building exit waypoint.')">
+                EXIT
+            </div>
+
+            <!-- Horizontal Bench -->
+            <div 
+                id="loc-bench-center" 
+                class="map-box map-box-rounded" 
+                style="top: 360px; left: 215px; width: 180px; height: 25px; font-size: 10px;"
+                onclick="openLocationModal('Bench', 'Lobby waiting area seating bench.')">
+                BENCH
+            </div>
+
+            <div 
+                id="loc-entrance-label"
+                class="absolute font-black text-xs text-black cursor-pointer" 
+                style="top: 383px; left: 415px;"
+                onclick="openLocationModal('ENTRANCE', 'Building main entrance waypoint.')">
+                ENTRANCE
+            </div>
+
+
+            <!-- LOWER SECTION (OUTSIDE MAIN HALL) -->
+            <!-- ENTRANCE Long Bar -->
+            <div 
+                id="loc-main-entrance-bar" 
+                class="map-box" 
+                style="top: 430px; left: 110px; width: 395px; height: 30px; font-size: 12px; letter-spacing: 0.2em;"
+                onclick="openLocationModal('ENTRANCE', 'Main outdoor entrance passageway.')">
+                ENTRANCE
+            </div>
+
+            <!-- Small Aquarium -->
+            <div 
+                id="loc-aquarium-small" 
+                class="map-box map-box-rounded" 
+                style="top: 470px; left: 250px; width: 110px; height: 35px; font-size: 10px;"
+                onclick="openLocationModal('AQUARIUM', 'Ornamental fish aquarium landmark.')">
+                AQUARIUM
+            </div>
+
+            <!-- Stairs Bar -->
+            <div 
+                id="loc-stairs-bar" 
+                class="map-box" 
+                style="top: 515px; left: 118px; width: 380px; height: 35px; font-size: 12px; letter-spacing: 0.15em;"
+                onclick="openLocationModal('Stairs', 'Outdoor staircase access.')">
+                Stairs
+            </div>
+
+            <!-- ARCADE Bar -->
+            <div 
+                id="loc-arcade" 
+                class="map-box" 
+                style="top: 565px; left: 110px; width: 395px; height: 50px; font-size: 14px; letter-spacing: 0.3em;"
+                onclick="openLocationModal('ARCADE', 'Outdoor campus arcade covered pathway.')">
+                ARCADE
+            </div>
+
+
+            <!-- BOTTOM RIGHT LOWER STRUCTURES -->
+            <!-- Large Aquarium -->
+            <div 
+                id="loc-aquarium-large" 
+                class="map-box map-box-rounded" 
+                style="top: 450px; left: 540px; width: 395px; height: 55px; font-size: 13px; letter-spacing: 0.2em;"
+                onclick="openLocationModal('AQUARIUM', 'Main campus outdoor garden aquarium pond area.')">
+                AQUARIUM
+            </div>
+
+            <!-- CORRIDOR Bar -->
+            <div 
+                id="loc-corridor-bar" 
+                class="map-box" 
+                style="top: 520px; left: 540px; width: 395px; height: 45px; font-size: 13px; letter-spacing: 0.25em;"
+                onclick="openLocationModal('CORRIDOR', 'Main lower campus walkway corridor.')">
+                CORRIDOR
+            </div>
+
+
+            <!-- BOTTOM NAVIGATION BUTTONS -->
+            <!-- PROCEED TO ARCADE -->
+            <a 
+                href="10thpage.html" 
+                class="yellow-action-btn" 
+                style="top: 585px; left: 525px; width: 135px; height: 32px; font-size: 8px;">
+                GO TO ARCADE
+            </a>
+                
+            <!-- BACK BUTTON -> Shortcut to 1stpage.html -->
+            <a 
+                href="1stpage.html" 
+                class="yellow-action-btn" 
+                style="top: 585px; right: 65px; width: 75px; height: 32px; font-size: 9px;">
+                BACK
+            </a>
+
+        </div>
+    </main>
+
+    <!-- LOCATION DETAILS MODAL -->
+    <div id="infoModal" class="fixed inset-0 bg-black/75 backdrop-blur-sm hidden items-center justify-center p-4 z-50">
+        <div class="bg-yellow-400 border-3 border-black p-6 max-w-sm w-full relative shadow-2xl">
+            <div class="flex justify-between items-start mb-3 border-b-2 border-black pb-2">
+                <div>
+                    <span class="text-[9px] font-black bg-black text-yellow-400 px-2 py-0.5 uppercase">CAMPUS LOCATION</span>
+                    <h3 id="modalTitle" class="text-lg font-black uppercase text-black mt-1">Title</h3>
+                </div>
+                <button onclick="closeModal()" class="bg-black text-yellow-400 font-black text-xs px-2 py-1 border border-black hover:bg-white hover:text-black">✕</button>
+            </div>
+
+            <p id="modalDesc" class="text-xs font-bold text-black mb-5 leading-relaxed">
+                Description goes here.
+            </p>
+
+            <div class="bg-white border-2 border-black p-3 mb-4">
+                <span class="text-[10px] font-black text-gray-500 uppercase block">Proximity Status</span>
+                <span id="modalDist" class="text-xs font-black text-black">~ Ground Floor Zone</span>
+            </div>
+
+            <div class="flex justify-end">
+                <button onclick="closeModal()" class="yellow-action-btn relative static w-full py-2">OK, GOT IT</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- PAGE ACTION MODAL (FOR NAV BUTTONS) -->
+    <div id="actionModal" class="fixed inset-0 bg-black/75 backdrop-blur-sm hidden items-center justify-center p-4 z-50">
+        <div class="bg-white border-3 border-black p-6 max-w-sm w-full relative shadow-2xl">
+            <div class="flex justify-between items-center mb-3 border-b-2 border-black pb-2">
+                <h3 id="actionModalTitle" class="text-base font-black uppercase text-black">Action</h3>
+                <button onclick="closeActionModal()" class="bg-black text-yellow-400 font-black text-xs px-2 py-1 border border-black">✕</button>
+            </div>
+
+            <div class="bg-yellow-100 border-2 border-black p-3 mb-4 text-xs font-bold text-black">
+                <p id="actionModalDesc">Redirecting to target view...</p>
+            </div>
+
+            <div class="flex justify-end">
+                <button onclick="closeActionModal()" class="yellow-action-btn relative static px-6 py-2">CONTINUE</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Search Registry containing all floor plan entities
+        const places = [
+            { id: 'loc-basic-edu-building', name: 'Basic Education and College Building' },
+            { id: 'loc-stairs-2nd', name: 'Stairs to 2nd Floor' },
+            { id: 'loc-womens-cr', name: 'Women\'s Comfort Room' },
+            { id: 'loc-gym-entrance', name: 'Entrance to Gym' },
+            { id: 'loc-accreditation', name: 'Accreditation Office' },
+            { id: 'loc-office-vp', name: 'Office of the VP' },
+            { id: 'loc-finance', name: 'Finance Office' },
+            { id: 'loc-dept-bsba', name: 'BSBA/BSA/EDUC/PTCP Office' },
+            { id: 'loc-dept-bshm', name: 'BSHM/BSTM Office' },
+            { id: 'loc-dept-bsit', name: 'BSIT/BSCS/BSIE/BSCPE Office' },
+            { id: 'loc-dept-bscrim', name: 'BSCRIM/BSPSYCH Office' },
+            { id: 'loc-clearance', name: 'Signing of Clearance' },
+            { id: 'loc-bench-center', name: 'Bench' },
+            { id: 'loc-aquarium-small', name: 'Aquarium (Small)' },
+            { id: 'loc-stairs-bar', name: 'Stairs' },
+            { id: 'loc-arcade', name: 'Arcade' },
+            { id: 'loc-aquarium-large', name: 'Aquarium (Large)' },
+            { id: 'loc-corridor-bar', name: 'Corridor' }
+        ];
+
+        // Search Functionality
+        function handleSearch() {
+            const query = document.getElementById('searchInput').value.trim().toLowerCase();
+            const clearBtn = document.getElementById('clearBtn');
+
+            if (query.length > 0) {
+                clearBtn.classList.remove('hidden');
+            } else {
+                clearBtn.classList.add('hidden');
+                resetView();
+                return;
+            }
+
+            places.forEach(place => {
+                const el = document.getElementById(place.id);
+                if (!el) return;
+
+                if (place.name.toLowerCase().includes(query)) {
+                    el.classList.add('search-highlight');
+                    el.classList.remove('dimmed');
+                } else {
+                    el.classList.remove('search-highlight');
+                    el.classList.add('dimmed');
+                }
+            });
+        }
+
+        function clearSearch() {
+            document.getElementById('searchInput').value = '';
+            document.getElementById('clearBtn').classList.add('hidden');
+            resetView();
+        }
+
+        function resetView() {
+            places.forEach(place => {
+                const el = document.getElementById(place.id);
+                if (el) {
+                    el.classList.remove('search-highlight', 'dimmed');
+                }
+            });
+        }
+
+        // Location Modal Controls
+        function openLocationModal(title, desc) {
+            document.getElementById('modalTitle').innerText = title;
+            document.getElementById('modalDesc').innerText = desc;
+
+            const modal = document.getElementById('infoModal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        function closeModal() {
+            const modal = document.getElementById('infoModal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+
+        // Action Modal Controls
+        function openActionModal(title, desc) {
+            document.getElementById('actionModalTitle').innerText = title;
+            document.getElementById('actionModalDesc').innerText = desc;
+
+            const modal = document.getElementById('actionModal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        function closeActionModal() {
+            const modal = document.getElementById('actionModal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+    </script>
+</body>
+</html>

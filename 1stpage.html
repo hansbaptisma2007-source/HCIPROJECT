@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Campus Map - Ground Level</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Font: Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+    
+    <style>
+        * {
+            box-sizing: border-box;
+            border-radius: 0px !important; /* Strict requirement: All shapes square */
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3cc3b; /* Reference Yellow */
+            color: #000000;
+            user-select: none;
+            margin: 0;
+            padding: 0;
+            overflow-x: auto;
+        }
+
+        /* Map Canvas Relative Container */
+        .map-canvas {
+            width: 1000px;
+            height: 680px;
+            background-color: #f3cc3b;
+            position: relative;
+            border: 3px solid #000000;
+            box-shadow: 0 12px 32px rgba(0, 0, 0, 0.25);
+            margin: 0 auto;
+            overflow: hidden;
+        }
+
+        /* Strict Building Box Styling */
+        .map-box {
+            background-color: #ffffff;
+            border: 2px solid #000000;
+            color: #000000;
+            font-weight: 800;
+            font-size: 11px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            line-height: 1.2;
+            position: absolute;
+            cursor: pointer;
+            transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+            box-shadow: 0 2px 0px rgba(0,0,0,0.15);
+            padding: 4px;
+            text-transform: uppercase;
+        }
+
+        .map-box:hover {
+            transform: scale(1.025);
+            z-index: 30;
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
+            background-color: #ffffff;
+        }
+
+        /* Interactive Yellow Action Buttons */
+        .yellow-action-btn {
+            background-color: #f3cc3b;
+            color: #000000;
+            border: 2px solid #000000;
+            font-weight: 800;
+            font-size: 11px;
+            letter-spacing: 0.05em;
+            padding: 8px 14px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-transform: uppercase;
+            box-shadow: 0 2px 0px rgba(0,0,0,0.2);
+            position: absolute;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 25;
+            text-decoration: none;
+        }
+
+        /* Hover turns background BLACK and text YELLOW with stroke */
+        .yellow-action-btn:hover {
+            background-color: #000000 !important;
+            color: #f3cc3b !important;
+            border-color: #000000 !important;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+            transform: translateY(-2px);
+        }
+
+        /* YOU ARE HERE arrow shape button */
+        .you-are-here-shape {
+            background-color: #ffffff;
+            border: 2px solid #000000;
+            color: #000000;
+            font-weight: 800;
+            font-size: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: absolute;
+            cursor: pointer;
+            clip-path: polygon(0% 0%, 80% 0%, 100% 50%, 80% 100%, 0% 100%);
+            padding-right: 18px;
+            transition: all 0.2s ease;
+            box-shadow: 0 2px 0 rgba(0,0,0,0.2);
+        }
+
+        .you-are-here-shape:hover {
+            background-color: #000000;
+            color: #f3cc3b;
+        }
+
+        /* RADAR HUMAN ICON (Circle with Radar scanner animation) */
+        .radar-human-circle {
+            width: 46px;
+            height: 46px;
+            background-color: #000000;
+            border: 2px solid #ffffff;
+            border-radius: 50% !important;
+            position: absolute;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 0 12px rgba(0,0,0,0.6);
+            cursor: pointer;
+            overflow: hidden;
+            z-index: 25;
+        }
+
+        .radar-human-circle .radar-sweep {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            border-radius: 50% !important;
+            background: conic-gradient(from 0deg, rgba(74, 222, 128, 0.85) 0deg, rgba(243, 204, 59, 0.2) 60deg, transparent 120deg, transparent 360deg);
+            animation: rotateRadar 2s linear infinite;
+        }
+
+        .radar-human-circle .radar-ring {
+            position: absolute;
+            inset: 3px;
+            border: 1px solid rgba(74, 222, 128, 0.6);
+            border-radius: 50% !important;
+        }
+
+        .radar-human-circle .radar-ring-pulse {
+            position: absolute;
+            inset: 0px;
+            border-radius: 50% !important;
+            border: 1.5px solid #f3cc3b;
+            animation: pulseRing 1.8s ease-out infinite;
+        }
+
+        @keyframes rotateRadar {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        @keyframes pulseRing {
+            0% { transform: scale(0.6); opacity: 1; }
+            100% { transform: scale(1.6); opacity: 0; }
+        }
+
+        .radar-human-svg {
+            z-index: 10;
+            width: 24px;
+            height: 24px;
+            fill: #f3cc3b;
+            filter: drop-shadow(0px 1px 2px rgba(0,0,0,0.8));
+        }
+
+        .writing-vertical {
+            writing-mode: vertical-lr;
+            transform: rotate(180deg);
+            letter-spacing: 0.08em;
+        }
+
+        /* Search highlighting animation */
+        .search-highlight {
+            background-color: #2563eb !important;
+            color: #ffffff !important;
+            border-color: #000000 !important;
+            animation: searchPulse 1s ease-in-out infinite alternate;
+            z-index: 40 !important;
+        }
+
+        @keyframes searchPulse {
+            0% {
+                box-shadow: 0 0 0px 0px rgba(37, 99, 235, 0.8);
+                transform: scale(1);
+            }
+            100% {
+                box-shadow: 0 0 24px 8px rgba(37, 99, 235, 0.9);
+                transform: scale(1.05);
+            }
+        }
+
+        .dimmed {
+            opacity: 0.25 !important;
+            filter: grayscale(80%);
+        }
+
+        .road-divider {
+            border-left: 3px dashed #f3cc3b;
+            height: 100%;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between p-3 md:p-6 bg-[#f3cc3b]">
+
+    <header class="max-w-[1000px] w-full mx-auto mb-4 bg-white border-2 border-black p-3 shadow-lg flex flex-col sm:flex-row items-center justify-between gap-3">
+        <!-- Brand Title -->
+        <div class="flex items-center gap-3">
+            <div class="w-8 h-8 bg-black flex items-center justify-center border border-black">
+                <span class="text-yellow-400 font-black text-sm">MAP</span>
+            </div>
+            <div>
+                <h1 class="text-sm font-black uppercase tracking-wider text-black leading-none">Campus Navigation System</h1>
+                <p class="text-[10px] font-bold text-gray-600">Ground Level Layout & Wayfinding System</p>
+            </div>
+        </div>
+
+        <!-- Search Bar -->
+        <div class="flex items-center gap-2 w-full sm:w-auto">
+            <div class="relative w-full sm:w-80">
+                <input 
+                    type="text" 
+                    id="searchInput" 
+                    placeholder="Search place (e.g. Canteen, Outpost, ATM)..." 
+                    class="w-full px-3 py-2 text-xs font-black bg-yellow-50 text-black border-2 border-black focus:outline-none focus:bg-white placeholder-gray-500"
+                    oninput="handleSearch()"
+                />
+                <button 
+                    id="clearBtn" 
+                    onclick="clearSearch()" 
+                    class="hidden absolute right-2 top-1/2 -translate-y-1/2 text-[10px] bg-black text-yellow-400 font-black px-1.5 py-0.5 border border-black">
+                    CLEAR
+                </button>
+            </div>
+            <button onclick="resetView()" class="bg-black text-yellow-400 text-xs font-black px-3 py-2 border-2 border-black hover:bg-yellow-400 hover:text-black transition-colors uppercase">
+                Reset
+            </button>
+        </div>
+    </header>
+
+    <main class="w-full overflow-x-auto flex justify-center my-auto py-2">
+        
+        <!-- ABSOLUTE CANVAS CONTAINER (1000px x 680px) -->
+        <div class="map-canvas" id="mapCanvas">
+
+            <!-- 1. TOP PROCEED BUTTON (SHORTCUT DIRECTLY TO 2ndpage.html) -->
+            <a 
+                href="2ndpage.html" 
+                class="yellow-action-btn" 
+                style="top: 20px; left: 30px; width: 110px; height: 38px;">
+                PROCEED
+            </a>
+
+            <!-- 2. BASIC EDUC. REGISTRAR OFFICE -->
+            <div 
+                id="loc-basic-educ" 
+                class="map-box" 
+                style="top: 20px; left: 180px; width: 130px; height: 60px;"
+                onclick="openLocationModal('Basic Educ. Registrar Office', 'Official registrar office for basic education student records, enrollment, and credentials.')">
+                Basic Educ.<br>Registrar Office
+            </div>
+
+            <!-- 3. THIS WAY TO PDIC BUTTON (BLANK URL / PLACEHOLDER) -->
+            <a 
+                href="16thpage.html" 
+                class="yellow-action-btn" 
+                style="top: 20px; right: 30px; width: 160px; height: 38px;">
+                THIS WAY TO PDIC
+            </a>
+
+            <!-- 4. LEFT COLUMN BUILDINGS -->
+            <!-- Canteen -->
+            <div 
+                id="loc-canteen" 
+                class="map-box" 
+                style="top: 175px; left: 45px; width: 125px; height: 70px; font-size: 13px;"
+                onclick="openLocationModal('Canteen', 'Campus food court and refreshment facility.')">
+                Canteen
+            </div>
+
+            <!-- College Of Law -->
+            <div 
+                id="loc-college-law" 
+                class="map-box" 
+                style="top: 260px; left: 45px; width: 125px; height: 70px; font-size: 13px;"
+                onclick="openLocationModal('College Of Law', 'Law school department, lecture halls, and faculty rooms.')">
+                College Of<br>Law
+            </div>
+
+            <!-- Technology Department's Office -->
+            <div 
+                id="loc-tech-dept" 
+                class="map-box" 
+                style="top: 345px; left: 45px; width: 125px; height: 70px; font-size: 10px;"
+                onclick="openLocationModal('Technology Department\'s Office', 'IT operations office, technical support, and computer labs department.')">
+                Technology<br>Department's<br>Office
+            </div>
+
+            <!-- Admission's Office -->
+            <div 
+                id="loc-admission" 
+                class="map-box" 
+                style="top: 430px; left: 45px; width: 125px; height: 70px; font-size: 11px;"
+                onclick="openLocationModal('Admission\'s Office', 'Student admissions, application inquiries, and campus tour assistance.')">
+                Admission's<br>Office
+            </div>
+
+            <!-- ATM MACHINE -->
+            <div 
+                id="loc-atm" 
+                class="map-box" 
+                style="top: 512px; left: 80px; width: 90px; height: 38px; font-size: 9px;"
+                onclick="openLocationModal('ATM MACHINE', '24/7 ATM facility for automated banking and withdrawals.')">
+                ATM MACHINE
+            </div>
+
+            <!-- YOU ARE HERE -->
+            <div 
+                id="loc-you-are-here" 
+                class="you-are-here-shape" 
+                style="top: 565px; left: 65px; width: 130px; height: 42px;"
+                onclick="openLocationModal('YOU ARE HERE', 'Your present standing location on the campus map.')">
+                YOU ARE HERE
+            </div>
+
+            <!-- HUMAN RADAR ICON -->
+            <div 
+                id="loc-radar-icon"
+                class="radar-human-circle" 
+                style="top: 562px; left: 205px;"
+                title="Your GPS Radar Position"
+                onclick="openLocationModal('YOU ARE HERE (Radar Pin)', 'Real-time GPS user position indicator on campus.')">
+                <div class="radar-sweep"></div>
+                <div class="radar-ring"></div>
+                <div class="radar-ring-pulse"></div>
+                <svg class="radar-human-svg" viewBox="0 0 24 24">
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/>
+                </svg>
+            </div>
+
+            <!-- CORRIDOR & ADJACENT COLUMNS -->
+            <div 
+                id="loc-corridor" 
+                class="map-box" 
+                style="top: 155px; left: 180px; width: 85px; height: 395px;"
+                onclick="openLocationModal('CORRIDOR', 'Main covered walkway corridor connecting western wing offices.')">
+                <span class="writing-vertical text-xs font-black">CORRIDOR</span>
+            </div>
+
+            <div 
+                id="loc-stairs" 
+                class="map-box" 
+                style="top: 95px; left: 280px; width: 35px; height: 95px;"
+                onclick="openLocationModal('STAIRS', 'Access stairwell for upper floor classrooms.')">
+                <span class="writing-vertical text-[10px]">STAIRS</span>
+            </div>
+
+            <div 
+                id="loc-flower-pots" 
+                class="map-box" 
+                style="top: 205px; left: 280px; width: 35px; height: 320px;"
+                onclick="openLocationModal('FLOWER POTS', 'Decorative green botanical strip alongside corridor walkway.')">
+                <span class="writing-vertical text-[10px]">FLOWER POTS</span>
+            </div>
+
+            <div 
+                id="loc-guard-house" 
+                class="map-box" 
+                style="top: 540px; left: 290px; width: 90px; height: 55px; font-size: 10px;"
+                onclick="openLocationModal('GUARD HOUSE', 'Security guard post for visitor logging and access control.')">
+                GUARD<br>HOUSE
+            </div>
+
+            <!-- CENTER PARKING SPACES -->
+            <div 
+                id="loc-parking-1" 
+                class="map-box" 
+                style="top: 145px; left: 345px; width: 125px; height: 180px;"
+                onclick="openLocationModal('PARKING SPACE (North)', 'Reserved vehicle parking space for faculty and staff.')">
+                <span class="writing-vertical text-xs">PARKING SPACE</span>
+            </div>
+
+            <div 
+                id="loc-parking-2" 
+                class="map-box" 
+                style="top: 340px; left: 345px; width: 125px; height: 180px;"
+                onclick="openLocationModal('PARKING SPACE (South)', 'Open parking zone for cars and motorcycles.')">
+                <span class="writing-vertical text-xs">PARKING SPACE</span>
+            </div>
+
+            <div 
+                id="loc-gate" 
+                class="map-box" 
+                style="top: 535px; left: 415px; width: 440px; height: 55px; font-size: 13px; letter-spacing: 0.05em;"
+                onclick="openLocationModal('PARKING ENTRANCE / GATE', 'Main vehicle entrance gate and security boom barrier.')">
+                PARKING ENTRANCE / GATE
+            </div>
+
+            <!-- MAIN BLACK ROADWAY -->
+            <div 
+                id="loc-road" 
+                class="map-box" 
+                style="top: 25px; left: 490px; width: 280px; height: 495px; background-color: #000000; border: 3px solid #000000;"
+                onclick="openLocationModal('Main Campus Roadway', 'Dual lane road for campus traffic.')">
+                <div class="absolute inset-0 flex justify-center items-center pointer-events-none">
+                    <div class="road-divider"></div>
+                </div>
+                <div class="absolute left-1/4 top-1/2 -translate-y-1/2 text-yellow-400 text-4xl font-black">
+                    ↓
+                </div>
+                <div class="absolute right-1/4 top-1/2 -translate-y-1/2 text-yellow-400 text-4xl font-black">
+                    ↑
+                </div>
+            </div>
+
+            <!-- RIGHT COLUMN BUILDINGS -->
+            <div 
+                id="loc-shed" 
+                class="map-box" 
+                style="top: 80px; left: 810px; width: 115px; height: 275px; font-size: 14px; letter-spacing: 0.1em;"
+                onclick="openLocationModal('SHED', 'Covered outdoor shed area for campus events and gatherings.')">
+                SHED
+            </div>
+
+            <div 
+                id="loc-outpost" 
+                class="map-box" 
+                style="top: 385px; left: 825px; width: 115px; height: 135px; font-size: 13px; letter-spacing: 0.05em;"
+                onclick="openLocationModal('OUTPOST', 'Field outpost and campus safety station.')">
+                OUTPOST
+            </div>
+
+        </div>
+    </main>
+
+    <!-- LOCATION DETAILS MODAL -->
+    <div id="infoModal" class="fixed inset-0 bg-black/75 backdrop-blur-sm hidden items-center justify-center p-4 z-50">
+        <div class="bg-yellow-400 border-3 border-black p-6 max-w-sm w-full relative shadow-2xl">
+            <div class="flex justify-between items-start mb-3 border-b-2 border-black pb-2">
+                <div>
+                    <span class="text-[9px] font-black bg-black text-yellow-400 px-2 py-0.5 uppercase">CAMPUS LOCATION</span>
+                    <h3 id="modalTitle" class="text-lg font-black uppercase text-black mt-1">Title</h3>
+                </div>
+                <button onclick="closeModal()" class="bg-black text-yellow-400 font-black text-xs px-2 py-1 border border-black hover:bg-white hover:text-black">✕</button>
+            </div>
+
+            <p id="modalDesc" class="text-xs font-bold text-black mb-5 leading-relaxed">
+                Description goes here.
+            </p>
+
+            <div class="bg-white border-2 border-black p-3 mb-4">
+                <span class="text-[10px] font-black text-gray-500 uppercase block">Proximity from YOU ARE HERE</span>
+                <span id="modalDist" class="text-xs font-black text-black">~ 15 Meters (30 sec walk)</span>
+            </div>
+
+            <div class="flex justify-end">
+                <button onclick="closeModal()" class="yellow-action-btn relative static w-full py-2">OK, GOT IT</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const places = [
+            { id: 'loc-basic-educ', name: 'Basic Educ. Registrar Office' },
+            { id: 'loc-canteen', name: 'Canteen' },
+            { id: 'loc-college-law', name: 'College Of Law' },
+            { id: 'loc-tech-dept', name: 'Technology Department\'s Office' },
+            { id: 'loc-admission', name: 'Admission\'s Office' },
+            { id: 'loc-atm', name: 'ATM MACHINE' },
+            { id: 'loc-you-are-here', name: 'YOU ARE HERE' },
+            { id: 'loc-radar-icon', name: 'YOU ARE HERE (Radar Pin)' },
+            { id: 'loc-corridor', name: 'CORRIDOR' },
+            { id: 'loc-stairs', name: 'STAIRS' },
+            { id: 'loc-flower-pots', name: 'FLOWER POTS' },
+            { id: 'loc-guard-house', name: 'GUARD HOUSE' },
+            { id: 'loc-parking-1', name: 'PARKING SPACE (North)' },
+            { id: 'loc-parking-2', name: 'PARKING SPACE (South)' },
+            { id: 'loc-gate', name: 'PARKING ENTRANCE / GATE' },
+            { id: 'loc-road', name: 'Main Campus Roadway' },
+            { id: 'loc-shed', name: 'SHED' },
+            { id: 'loc-outpost', name: 'OUTPOST' }
+        ];
+
+        function handleSearch() {
+            const query = document.getElementById('searchInput').value.trim().toLowerCase();
+            const clearBtn = document.getElementById('clearBtn');
+
+            if (query.length > 0) {
+                clearBtn.classList.remove('hidden');
+            } else {
+                clearBtn.classList.add('hidden');
+                resetView();
+                return;
+            }
+
+            places.forEach(place => {
+                const el = document.getElementById(place.id);
+                if (!el) return;
+
+                if (place.name.toLowerCase().includes(query)) {
+                    el.classList.add('search-highlight');
+                    el.classList.remove('dimmed');
+                } else {
+                    el.classList.remove('search-highlight');
+                    el.classList.add('dimmed');
+                }
+            });
+        }
+
+        function clearSearch() {
+            document.getElementById('searchInput').value = '';
+            document.getElementById('clearBtn').classList.add('hidden');
+            resetView();
+        }
+
+        function resetView() {
+            places.forEach(place => {
+                const el = document.getElementById(place.id);
+                if (el) {
+                    el.classList.remove('search-highlight', 'dimmed');
+                }
+            });
+        }
+
+        function openLocationModal(title, desc) {
+            document.getElementById('modalTitle').innerText = title;
+            document.getElementById('modalDesc').innerText = desc;
+            
+            const dist = title.includes('YOU ARE HERE') 
+                ? '0 Meters (Current Standing Spot)' 
+                : `${Math.floor(Math.random() * 45 + 10)} Meters (~${Math.floor(Math.random() * 2 + 1)} min walk)`;
+            document.getElementById('modalDist').innerText = dist;
+
+            const modal = document.getElementById('infoModal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        function closeModal() {
+            const modal = document.getElementById('infoModal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+    </script>
+</body>
+</html>

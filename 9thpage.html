@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Campus Map - Gymnasium & Event Hall Zone</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Font: Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+    
+    <style>
+        * {
+            box-sizing: border-box;
+            border-radius: 0px !important; /* Strict requirement: All shapes square */
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3cc3b; /* Reference Yellow */
+            color: #000000;
+            user-select: none;
+            margin: 0;
+            padding: 0;
+            overflow-x: auto;
+        }
+
+        /* Map Canvas Relative Container */
+        .map-canvas {
+            width: 1000px;
+            height: 680px;
+            background-color: #f3cc3b;
+            position: relative;
+            border: 3px solid #000000;
+            box-shadow: 0 12px 32px rgba(0, 0, 0, 0.25);
+            margin: 0 auto;
+            overflow: hidden;
+        }
+
+        /* Strict Building Box Styling */
+        .map-box {
+            background-color: #ffffff;
+            border: 2px solid #000000;
+            color: #000000;
+            font-weight: 800;
+            font-size: 11px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            line-height: 1.2;
+            position: absolute;
+            cursor: pointer;
+            transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+            box-shadow: 0 2px 0px rgba(0,0,0,0.15);
+            padding: 4px;
+            text-transform: uppercase;
+        }
+
+        .map-box:hover {
+            transform: scale(1.025);
+            z-index: 30;
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
+            background-color: #ffffff;
+        }
+
+        /* Small Chair Box Styling */
+        .chair-box {
+            background-color: #ffffff;
+            border: 1.5px solid #000000;
+            position: absolute;
+            box-shadow: 0 1px 0px rgba(0,0,0,0.15);
+        }
+
+        /* Interactive Yellow Action Buttons */
+        .yellow-action-btn {
+            background-color: #f3cc3b;
+            color: #000000;
+            border: 2px solid #000000;
+            font-weight: 800;
+            font-size: 9px;
+            letter-spacing: 0.05em;
+            padding: 4px 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-transform: uppercase;
+            box-shadow: 0 2px 0px rgba(0,0,0,0.2);
+            position: absolute;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 25;
+            text-decoration: none;
+            text-align: center;
+            line-height: 1.1;
+        }
+
+        .yellow-action-btn:hover {
+            background-color: #000000 !important;
+            color: #f3cc3b !important;
+            border-color: #000000 !important;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+            transform: translateY(-2px);
+        }
+
+        .writing-vertical {
+            writing-mode: vertical-lr;
+            transform: rotate(180deg);
+            letter-spacing: 0.12em;
+        }
+
+        /* Search highlighting animation */
+        .search-highlight {
+            background-color: #2563eb !important;
+            color: #ffffff !important;
+            border-color: #000000 !important;
+            animation: searchPulse 1s ease-in-out infinite alternate;
+            z-index: 40 !important;
+        }
+
+        @keyframes searchPulse {
+            0% {
+                box-shadow: 0 0 0px 0px rgba(37, 99, 235, 0.8);
+                transform: scale(1);
+            }
+            100% {
+                box-shadow: 0 0 24px 8px rgba(37, 99, 235, 0.9);
+                transform: scale(1.05);
+            }
+        }
+
+        .dimmed {
+            opacity: 0.25 !important;
+            filter: grayscale(80%);
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between p-3 md:p-6 bg-[#f3cc3b]">
+
+    <!-- HEADER SECTION -->
+    <header class="max-w-[1000px] w-full mx-auto mb-4 bg-white border-2 border-black p-3 shadow-lg flex flex-col sm:flex-row items-center justify-between gap-3">
+        <div class="flex items-center gap-3">
+            <div class="w-8 h-8 bg-black flex items-center justify-center border border-black">
+                <span class="text-yellow-400 font-black text-sm">MAP</span>
+            </div>
+            <div>
+                <h1 class="text-sm font-black uppercase tracking-wider text-black leading-none">Campus Navigation System</h1>
+                <p class="text-[10px] font-bold text-gray-600">Gymnasium, Event Hall & PE Faculty Complex</p>
+            </div>
+        </div>
+
+        <!-- Search Bar -->
+        <div class="flex items-center gap-2 w-full sm:w-auto">
+            <div class="relative w-full sm:w-80">
+                <input 
+                    type="text" 
+                    id="searchInput" 
+                    placeholder="Search (e.g. Gymnasium, Event Hall, Food Stall, Light and Sound)..." 
+                    class="w-full px-3 py-2 text-xs font-black bg-yellow-50 text-black border-2 border-black focus:outline-none focus:bg-white placeholder-gray-500"
+                    oninput="handleSearch()"
+                />
+                <button 
+                    id="clearBtn" 
+                    onclick="clearSearch()" 
+                    class="hidden absolute right-2 top-1/2 -translate-y-1/2 text-[10px] bg-black text-yellow-400 font-black px-1.5 py-0.5 border border-black">
+                    CLEAR
+                </button>
+            </div>
+            <button onclick="resetView()" class="bg-black text-yellow-400 text-xs font-black px-3 py-2 border-2 border-black hover:bg-yellow-400 hover:text-black transition-colors uppercase">
+                Reset
+            </button>
+        </div>
+    </header>
+
+    <main class="w-full overflow-x-auto flex justify-center my-auto py-2">
+        
+        <!-- CANVAS CONTAINER (1000px x 680px) -->
+        <div class="map-canvas" id="mapCanvas">
+
+            <!-- TOP LEFT: LARGE EMPTY BLOCK -->
+            <div 
+                id="loc-top-left-block" 
+                class="map-box" 
+                style="top: 25px; left: 30px; width: 120px; height: 120px;">
+            </div>
+
+            <!-- STORAGE ROOM -->
+            <div 
+                id="loc-storage-room" 
+                class="map-box" 
+                style="top: 25px; left: 155px; width: 110px; height: 70px; font-size: 10px;"
+                onclick="openLocationModal('Storage Room', 'Equipment and event supply storage room.')">
+                STORAGE<br>ROOM
+            </div>
+
+            <!-- FOOD STALL -->
+            <div 
+                id="loc-food-stall" 
+                class="map-box" 
+                style="top: 100px; left: 155px; width: 110px; height: 45px; font-size: 10px;"
+                onclick="openLocationModal('Food Stall', 'Snack stall near the event hall and gymnasium.')">
+                FOOD STALL
+            </div>
+
+            <!-- ACTION BUTTON: GO TO SHS BUILDING -> Links to 6thpage.html -->
+            <a 
+                href="6thpage.html" 
+                class="yellow-action-btn" 
+                style="top: 28px; left: 275px; width: 90px; height: 42px;">
+                GO TO SHS<br>BUILDING
+            </a>
+
+            <!-- ACTION BUTTON: GO BACK TO CANTEEN -> Links to 5thpage.html -->
+            <a 
+                href="5thpage.html" 
+                class="yellow-action-btn" 
+                style="top: 175px; left: 40px; width: 160px; height: 42px; font-size: 10px;">
+                GO BACK TO CANTEEN
+            </a>
+
+
+            <!-- MIDDLE SECTION: MEN'S CR & WOMEN'S CR WITH EXTRA LOWER SMALL BLOCKS -->
+            <!-- Men's CR -->
+            <div 
+                id="loc-mens-cr" 
+                class="map-box" 
+                style="top: 50px; left: 375px; width: 95px; height: 32px; font-size: 8px;"
+                onclick="openLocationModal('Men\'s CR', 'Restroom facility for men.')">
+                MEN'S CR
+            </div>
+            <!-- Empty block under Men's CR -->
+            <div class="map-box" style="top: 85px; left: 375px; width: 95px; height: 35px;"></div>
+
+            <!-- Women's CR -->
+            <div 
+                id="loc-womens-cr" 
+                class="map-box" 
+                style="top: 50px; left: 752px; width: 95px; height: 32px; font-size: 8px;"
+                onclick="openLocationModal('Women\'s CR', 'Restroom facility for women.')">
+                WOMEN'S CR
+            </div>
+            <!-- Empty block under Women's CR -->
+            <div class="map-box" style="top: 85px; left: 752px; width: 95px; height: 35px;"></div>
+
+
+            <!-- EVENT HALL (TOP CENTER) -->
+            <div 
+                id="loc-event-hall" 
+                class="map-box" 
+                style="top: 10px; left: 475px; width: 270px; height: 110px; font-size: 14px;"
+                onclick="openLocationModal('Event Hall', 'Multipurpose event hall for campus activities and programs.')">
+                EVENT HALL
+            </div>
+
+
+            <!-- GYMNASIUM (MAIN CENTER AREA) -->
+            <div 
+                id="loc-gymnasium" 
+                class="map-box" 
+                style="top: 125px; left: 375px; width: 472px; height: 510px; font-size: 24px; letter-spacing: 0.05em;"
+                onclick="openLocationModal('Gymnasium', 'Main campus sports complex and indoor gymnasium.')">
+                GYMNASIUM
+            </div>
+
+
+            <!-- LEFT LOWER AREA: 3 STACKED BLOCKS -->
+            <div id="loc-left-stack-1" class="map-box" style="top: 245px; left: 35px; width: 155px; height: 120px;"></div>
+            <div id="loc-left-stack-2" class="map-box" style="top: 372px; left: 35px; width: 155px; height: 120px;"></div>
+            <div id="loc-left-stack-3" class="map-box" style="top: 499px; left: 35px; width: 155px; height: 136px;"></div>
+
+
+            <!-- SEATING & TABLE SECTION (BETWEEN STACKED BLOCKS AND GYMNASIUM) -->
+            <!-- Top Table -->
+            <div 
+                id="loc-table-1" 
+                class="map-box" 
+                style="top: 260px; left: 268px; width: 52px; height: 140px; font-size: 10px;"
+                onclick="openLocationModal('Table Area', 'Dining and seating table.')">
+                <span class="writing-vertical">TABLE</span>
+            </div>
+            <!-- Top Table Left Chairs (6 boxes) -->
+            <div class="chair-box" style="top: 260px; left: 224px; width: 30px; height: 20px;"></div>
+            <div class="chair-box" style="top: 284px; left: 224px; width: 30px; height: 20px;"></div>
+            <div class="chair-box" style="top: 308px; left: 224px; width: 30px; height: 20px;"></div>
+            <div class="chair-box" style="top: 332px; left: 224px; width: 30px; height: 20px;"></div>
+            <div class="chair-box" style="top: 356px; left: 224px; width: 30px; height: 20px;"></div>
+            <div class="chair-box" style="top: 380px; left: 224px; width: 30px; height: 20px;"></div>
+            <!-- Top Table Right Chairs (6 boxes) -->
+            <div class="chair-box" style="top: 260px; left: 334px; width: 30px; height: 20px;"></div>
+            <div class="chair-box" style="top: 284px; left: 334px; width: 30px; height: 20px;"></div>
+            <div class="chair-box" style="top: 308px; left: 334px; width: 30px; height: 20px;"></div>
+            <div class="chair-box" style="top: 332px; left: 334px; width: 30px; height: 20px;"></div>
+            <div class="chair-box" style="top: 356px; left: 334px; width: 30px; height: 20px;"></div>
+            <div class="chair-box" style="top: 380px; left: 334px; width: 30px; height: 20px;"></div>
+
+            <!-- Bottom Table -->
+            <div 
+                id="loc-table-2" 
+                class="map-box" 
+                style="top: 415px; left: 268px; width: 52px; height: 140px; font-size: 10px;"
+                onclick="openLocationModal('Table Area', 'Dining and seating table.')">
+                <span class="writing-vertical">TABLE</span>
+            </div>
+            <!-- Bottom Table Left Chairs (6 boxes) -->
+            <div class="chair-box" style="top: 415px; left: 224px; width: 30px; height: 20px;"></div>
+            <div class="chair-box" style="top: 439px; left: 224px; width: 30px; height: 20px;"></div>
+            <div class="chair-box" style="top: 463px; left: 224px; width: 30px; height: 20px;"></div>
+            <div class="chair-box" style="top: 487px; left: 224px; width: 30px; height: 20px;"></div>
+            <div class="chair-box" style="top: 511px; left: 224px; width: 30px; height: 20px;"></div>
+            <div class="chair-box" style="top: 535px; left: 224px; width: 30px; height: 20px;"></div>
+            <!-- Bottom Table Right Chairs (6 boxes) -->
+            <div class="chair-box" style="top: 415px; left: 334px; width: 30px; height: 20px;"></div>
+            <div class="chair-box" style="top: 439px; left: 334px; width: 30px; height: 20px;"></div>
+            <div class="chair-box" style="top: 463px; left: 334px; width: 30px; height: 20px;"></div>
+            <div class="chair-box" style="top: 487px; left: 334px; width: 30px; height: 20px;"></div>
+            <div class="chair-box" style="top: 511px; left: 334px; width: 30px; height: 20px;"></div>
+            <div class="chair-box" style="top: 535px; left: 334px; width: 30px; height: 20px;"></div>
+
+
+            <!-- RIGHT SIDE BUILDINGS -->
+            <!-- Physical Educ Faculty (Top Right Vertical) -->
+            <div 
+                id="loc-pe-faculty" 
+                class="map-box" 
+                style="top: 28px; left: 902px; width: 62px; height: 168px; font-size: 11px;"
+                onclick="openLocationModal('Physical Educ Faculty', 'Physical Education department faculty office.')">
+                <span class="writing-vertical">PHYSICAL EDUC FACULTY</span>
+            </div>
+
+            <!-- Light and Sound (Bottom Right Corner) -->
+            <div 
+                id="loc-light-sound" 
+                class="map-box" 
+                style="top: 590px; left: 868px; width: 95px; height: 45px; font-size: 9px;"
+                onclick="openLocationModal('Light and Sound', 'Control room for lights, audio, and gymnasium events.')">
+                LIGHT AND SOUND
+            </div>
+
+        </div>
+    </main>
+
+    <!-- LOCATION DETAILS MODAL -->
+    <div id="infoModal" class="fixed inset-0 bg-black/75 backdrop-blur-sm hidden items-center justify-center p-4 z-50">
+        <div class="bg-yellow-400 border-3 border-black p-6 max-w-sm w-full relative shadow-2xl">
+            <div class="flex justify-between items-start mb-3 border-b-2 border-black pb-2">
+                <div>
+                    <span class="text-[9px] font-black bg-black text-yellow-400 px-2 py-0.5 uppercase">CAMPUS LOCATION</span>
+                    <h3 id="modalTitle" class="text-lg font-black uppercase text-black mt-1">Title</h3>
+                </div>
+                <button onclick="closeModal()" class="bg-black text-yellow-400 font-black text-xs px-2 py-1 border border-black hover:bg-white hover:text-black">✕</button>
+            </div>
+
+            <p id="modalDesc" class="text-xs font-bold text-black mb-5 leading-relaxed">
+                Description goes here.
+            </p>
+
+            <div class="bg-white border-2 border-black p-3 mb-4">
+                <span class="text-[10px] font-black text-gray-500 uppercase block">Area Status</span>
+                <span id="modalDist" class="text-xs font-black text-black">Gymnasium & Event Zone</span>
+            </div>
+
+            <div class="flex justify-end">
+                <button onclick="closeModal()" class="yellow-action-btn relative static w-full py-2">OK, GOT IT</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Place registry for real-time search
+        const places = [
+            { id: 'loc-storage-room', name: 'Storage Room' },
+            { id: 'loc-food-stall', name: 'Food Stall' },
+            { id: 'loc-mens-cr', name: "Men's CR" },
+            { id: 'loc-womens-cr', name: "Women's CR" },
+            { id: 'loc-event-hall', name: 'Event Hall' },
+            { id: 'loc-gymnasium', name: 'Gymnasium' },
+            { id: 'loc-table-1', name: 'Table' },
+            { id: 'loc-table-2', name: 'Table' },
+            { id: 'loc-pe-faculty', name: 'Physical Educ Faculty' },
+            { id: 'loc-light-sound', name: 'Light and Sound' }
+        ];
+
+        function handleSearch() {
+            const query = document.getElementById('searchInput').value.trim().toLowerCase();
+            const clearBtn = document.getElementById('clearBtn');
+
+            if (query.length > 0) {
+                clearBtn.classList.remove('hidden');
+            } else {
+                clearBtn.classList.add('hidden');
+                resetView();
+                return;
+            }
+
+            places.forEach(place => {
+                const el = document.getElementById(place.id);
+                if (!el) return;
+
+                if (place.name.toLowerCase().includes(query)) {
+                    el.classList.add('search-highlight');
+                    el.classList.remove('dimmed');
+                } else {
+                    el.classList.remove('search-highlight');
+                    el.classList.add('dimmed');
+                }
+            });
+        }
+
+        function clearSearch() {
+            document.getElementById('searchInput').value = '';
+            document.getElementById('clearBtn').classList.add('hidden');
+            resetView();
+        }
+
+        function resetView() {
+            places.forEach(place => {
+                const el = document.getElementById(place.id);
+                if (el) {
+                    el.classList.remove('search-highlight', 'dimmed');
+                }
+            });
+        }
+
+        function openLocationModal(title, desc) {
+            document.getElementById('modalTitle').innerText = title;
+            document.getElementById('modalDesc').innerText = desc;
+
+            const modal = document.getElementById('infoModal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        function closeModal() {
+            const modal = document.getElementById('infoModal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+    </script>
+</body>
+</html>

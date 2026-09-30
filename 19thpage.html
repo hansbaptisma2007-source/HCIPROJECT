@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Campus Map - Property Department Wing</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Font: Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+    
+    <style>
+        * {
+            box-sizing: border-box;
+            border-radius: 0px !important; /* Strict requirement: All outer shapes square */
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3cc3b; /* Reference Yellow */
+            color: #000000;
+            user-select: none;
+            margin: 0;
+            padding: 0;
+            overflow-x: auto;
+        }
+
+        /* Map Canvas Relative Container */
+        .map-canvas {
+            width: 1000px;
+            height: 680px;
+            background-color: #f3cc3b;
+            position: relative;
+            border: 3px solid #000000;
+            box-shadow: 0 12px 32px rgba(0, 0, 0, 0.25);
+            margin: 0 auto;
+            overflow: hidden;
+        }
+
+        /* Outer Enclosing Boundary */
+        .outer-frame {
+            position: absolute;
+            top: 25px;
+            left: 35px;
+            width: 790px;
+            height: 630px;
+            border: 3px solid #000000;
+            pointer-events: none;
+        }
+
+        /* Inner Content Border Frame */
+        .inner-frame {
+            position: absolute;
+            top: 35px;
+            left: 45px;
+            width: 770px;
+            height: 610px;
+            border: 2px solid #000000;
+            pointer-events: none;
+        }
+
+        /* Strict Building Box Styling */
+        .map-box {
+            background-color: #ffffff;
+            border: 2px solid #000000;
+            color: #000000;
+            font-weight: 800;
+            font-size: 13px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            line-height: 1.25;
+            position: absolute;
+            cursor: pointer;
+            transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+            box-shadow: 0 2px 0px rgba(0,0,0,0.15);
+            padding: 8px;
+            text-transform: uppercase;
+        }
+
+        .map-box:hover {
+            transform: scale(1.02);
+            z-index: 30;
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
+            background-color: #ffffff;
+        }
+
+        /* Interactive Yellow Action Buttons */
+        .yellow-action-btn {
+            background-color: #f3cc3b;
+            color: #000000;
+            border: 2px solid #000000;
+            font-weight: 800;
+            font-size: 9px;
+            letter-spacing: 0.05em;
+            padding: 4px 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-transform: uppercase;
+            box-shadow: 0 2px 0px rgba(0,0,0,0.2);
+            position: absolute;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 25;
+            text-decoration: none;
+            line-height: 1.15;
+            text-align: center;
+        }
+
+        .yellow-action-btn:hover {
+            background-color: #000000 !important;
+            color: #f3cc3b !important;
+            border-color: #000000 !important;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+            transform: translateY(-2px);
+        }
+
+        /* Search highlighting animation */
+        .search-highlight {
+            background-color: #2563eb !important;
+            color: #ffffff !important;
+            border-color: #000000 !important;
+            animation: searchPulse 1s ease-in-out infinite alternate;
+            z-index: 40 !important;
+        }
+
+        @keyframes searchPulse {
+            0% {
+                box-shadow: 0 0 0px 0px rgba(37, 99, 235, 0.8);
+                transform: scale(1);
+            }
+            100% {
+                box-shadow: 0 0 24px 8px rgba(37, 99, 235, 0.9);
+                transform: scale(1.05);
+            }
+        }
+
+        .dimmed {
+            opacity: 0.25 !important; 
+            filter: grayscale(80%);
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between p-3 md:p-6 bg-[#f3cc3b]">
+
+    <!-- HEADER SECTION -->
+    <header class="max-w-[1000px] w-full mx-auto mb-4 bg-white border-2 border-black p-3 shadow-lg flex flex-col sm:flex-row items-center justify-between gap-3">
+        <div class="flex items-center gap-3">
+            <div class="w-8 h-8 bg-black flex items-center justify-center border border-black">
+                <span class="text-yellow-400 font-black text-sm">MAP</span>
+            </div>
+            <div>
+                <h1 class="text-sm font-black uppercase tracking-wider text-black leading-none">Campus Interactive Map</h1>
+                <p class="text-[10px] font-bold text-gray-600">Property Department & Basic Education Library Wing</p>
+            </div>
+        </div>
+
+        <!-- Search Bar -->
+        <div class="flex items-center gap-2 w-full sm:w-auto">
+            <div class="relative w-full sm:w-80">
+                <input 
+                    type="text" 
+                    id="searchInput" 
+                    placeholder="Search room (e.g. Property, Library, Room 120)..." 
+                    class="w-full px-3 py-2 text-xs font-black bg-yellow-50 text-black border-2 border-black focus:outline-none focus:bg-white placeholder-gray-500"
+                    oninput="handleSearch()"
+                />
+                <button 
+                    id="clearBtn" 
+                    onclick="clearSearch()" 
+                    class="hidden absolute right-2 top-1/2 -translate-y-1/2 text-[10px] bg-black text-yellow-400 font-black px-1.5 py-0.5 border border-black">
+                    CLEAR
+                </button>
+            </div>
+            <button onclick="resetView()" class="bg-black text-yellow-400 text-xs font-black px-3 py-2 border-2 border-black hover:bg-yellow-400 hover:text-black transition-colors uppercase">
+                Reset
+            </button>
+        </div>
+    </header>
+
+    <main class="w-full overflow-x-auto flex justify-center my-auto py-2">
+        
+        <!-- CANVAS CONTAINER (1000px x 680px) -->
+        <div class="map-canvas" id="mapCanvas">
+
+            <!-- OUTER FRAME BOUNDARY -->
+            <div class="outer-frame"></div>
+
+            <!-- INNER FRAME BOUNDARY -->
+            <div class="inner-frame"></div>
+
+
+            <!-- LEFT COLUMN: TALL BLOCK - PROPERTY DEPARTMENT -->
+            <div 
+                id="loc-property" 
+                class="map-box" 
+                style="top: 70px; left: 70px; width: 290px; height: 540px; font-size: 15px; letter-spacing: 0.05em;"
+                onclick="openLocationModal('Property Department', 'Campus logistics, inventory, equipment request, and facilities office.')">
+                PROPERTY DEPARTMENT
+            </div>
+
+
+            <!-- RIGHT COLUMN ROOMS -->
+            <!-- Room 120 -->
+            <div 
+                id="loc-room-120" 
+                class="map-box" 
+                style="top: 70px; left: 510px; width: 290px; height: 100px;"
+                onclick="openLocationModal('Room 120', 'Classroom 120.')">
+                ROOM 120
+            </div>
+
+            <!-- Room 119 -->
+            <div 
+                id="loc-room-119" 
+                class="map-box" 
+                style="top: 170px; left: 510px; width: 290px; height: 110px;"
+                onclick="openLocationModal('Room 119', 'Classroom 119.')">
+                ROOM 119
+            </div>
+
+            <!-- Room 118 -->
+            <div 
+                id="loc-room-118" 
+                class="map-box" 
+                style="top: 280px; left: 510px; width: 290px; height: 110px;"
+                onclick="openLocationModal('Room 118', 'Classroom 118.')">
+                ROOM 118
+            </div>
+
+            <!-- Room 117 -->
+            <div 
+                id="loc-room-117" 
+                class="map-box" 
+                style="top: 390px; left: 510px; width: 290px; height: 100px;"
+                onclick="openLocationModal('Room 117', 'Classroom 117.')">
+                ROOM 117
+            </div>
+
+            <!-- Basic Education Library -->
+            <div 
+                id="loc-library" 
+                class="map-box" 
+                style="top: 490px; left: 510px; width: 290px; height: 120px; font-size: 13px;"
+                onclick="openLocationModal('Basic Education Library', 'Learning resource center and reading room for Basic Education students.')">
+                BASIC EDUCATION LIBRARY
+            </div>
+
+
+            <!-- BOTTOM RIGHT NAV BUTTON: GO BACK -> Links to Canteen Hall (12thpage.html) -->
+            <a 
+                href="5thpage.html" 
+                class="yellow-action-btn" 
+                style="bottom: 12px; right: 12px; width: 110px; height: 32px; font-size: 9px;">
+                GO BACK
+            </a>
+
+        </div>
+    </main>
+
+    <!-- LOCATION DETAILS MODAL -->
+    <div id="infoModal" class="fixed inset-0 bg-black/75 backdrop-blur-sm hidden items-center justify-center p-4 z-50">
+        <div class="bg-yellow-400 border-3 border-black p-6 max-w-sm w-full relative shadow-2xl">
+            <div class="flex justify-between items-start mb-3 border-b-2 border-black pb-2">
+                <div>
+                    <span class="text-[9px] font-black bg-black text-yellow-400 px-2 py-0.5 uppercase">CAMPUS LOCATION</span>
+                    <h3 id="modalTitle" class="text-lg font-black uppercase text-black mt-1">Title</h3>
+                </div>
+                <button onclick="closeModal()" class="bg-black text-yellow-400 font-black text-xs px-2 py-1 border border-black hover:bg-white hover:text-black">✕</button>
+            </div>
+
+            <p id="modalDesc" class="text-xs font-bold text-black mb-5 leading-relaxed">
+                Description goes here.
+            </p>
+
+            <div class="bg-white border-2 border-black p-3 mb-4">
+                <span class="text-[10px] font-black text-gray-500 uppercase block">Area Status</span>
+                <span id="modalDist" class="text-xs font-black text-black">Ground Floor Property Wing</span>
+            </div>
+
+            <div class="flex justify-end">
+                <button onclick="closeModal()" class="yellow-action-btn relative static w-full py-2">OK, GOT IT</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Place registry for real-time search
+        const places = [
+            { id: 'loc-property', name: 'Property Department' },
+            { id: 'loc-room-120', name: 'Room 120' },
+            { id: 'loc-room-119', name: 'Room 119' },
+            { id: 'loc-room-118', name: 'Room 118' },
+            { id: 'loc-room-117', name: 'Room 117' },
+            { id: 'loc-library', name: 'Basic Education Library' }
+        ];
+
+        function handleSearch() {
+            const query = document.getElementById('searchInput').value.trim().toLowerCase();
+            const clearBtn = document.getElementById('clearBtn');
+
+            if (query.length > 0) {
+                clearBtn.classList.remove('hidden');
+            } else {
+                clearBtn.classList.add('hidden');
+                resetView();
+                return;
+            }
+
+            places.forEach(place => {
+                const el = document.getElementById(place.id);
+                if (!el) return;
+
+                if (place.name.toLowerCase().includes(query)) {
+                    el.classList.add('search-highlight');
+                    el.classList.remove('dimmed');
+                } else {
+                    el.classList.remove('search-highlight');
+                    el.classList.add('dimmed');
+                }
+            });
+        }
+
+        function clearSearch() {
+            document.getElementById('searchInput').value = '';
+            document.getElementById('clearBtn').classList.add('hidden');
+            resetView();
+        }
+
+        function resetView() {
+            places.forEach(place => {
+                const el = document.getElementById(place.id);
+                if (el) {
+                    el.classList.remove('search-highlight', 'dimmed');
+                }
+            });
+        }
+
+        function openLocationModal(title, desc) {
+            document.getElementById('modalTitle').innerText = title;
+            document.getElementById('modalDesc').innerText = desc;
+
+            const modal = document.getElementById('infoModal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        function closeModal() {
+            const modal = document.getElementById('infoModal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+    </script>
+</body>
+</html>

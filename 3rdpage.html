@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Campus Map - 2nd Floor</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Font: Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+    
+    <style>
+        * {
+            box-sizing: border-box;
+            border-radius: 0px !important; /* Strict requirement: All shapes square */
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3cc3b; /* Reference Yellow */
+            color: #000000;
+            user-select: none;
+            margin: 0;
+            padding: 0;
+            overflow-x: auto;
+        }
+
+        /* Map Canvas Relative Container */
+        .map-canvas {
+            width: 1000px;
+            height: 680px;
+            background-color: #f3cc3b;
+            position: relative;
+            border: 3px solid #000000;
+            box-shadow: 0 12px 32px rgba(0, 0, 0, 0.25);
+            margin: 0 auto;
+            overflow: hidden;
+        }
+
+        /* Strict Building Box Styling */
+        .map-box {
+            background-color: #ffffff;
+            border: 2px solid #000000;
+            color: #000000;
+            font-weight: 800;
+            font-size: 11px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            line-height: 1.2;
+            position: absolute;
+            cursor: pointer;
+            transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+            box-shadow: 0 2px 0px rgba(0,0,0,0.15);
+            padding: 4px;
+            text-transform: uppercase;
+        }
+
+        .map-box:hover {
+            transform: scale(1.025);
+            z-index: 30;
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
+            background-color: #ffffff;
+        }
+
+        /* Interactive Yellow Action Buttons */
+        .yellow-action-btn {
+            background-color: #f3cc3b;
+            color: #000000;
+            border: 2px solid #000000;
+            font-weight: 800;
+            font-size: 11px;
+            letter-spacing: 0.05em;
+            padding: 6px 12px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-transform: uppercase;
+            box-shadow: 0 2px 0px rgba(0,0,0,0.2);
+            position: absolute;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 25;
+            text-decoration: none;
+        }
+
+        /* Hover turns background BLACK and text YELLOW */
+        .yellow-action-btn:hover {
+            background-color: #000000 !important;
+            color: #f3cc3b !important;
+            border-color: #000000 !important;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+            transform: translateY(-2px);
+        }
+
+        /* Search highlighting animation */
+        .search-highlight {
+            background-color: #2563eb !important; /* Bright active blue */
+            color: #ffffff !important;
+            border-color: #000000 !important;
+            animation: searchPulse 1s ease-in-out infinite alternate;
+            z-index: 40 !important;
+        }
+
+        @keyframes searchPulse {
+            0% {
+                box-shadow: 0 0 0px 0px rgba(37, 99, 235, 0.8);
+                transform: scale(1);
+            }
+            100% {
+                box-shadow: 0 0 24px 8px rgba(37, 99, 235, 0.9);
+                transform: scale(1.05);
+            }
+        }
+
+        .dimmed {
+            opacity: 0.25 !important;
+            filter: grayscale(80%);
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between p-3 md:p-6 bg-[#f3cc3b]">
+
+    <header class="max-w-[1000px] w-full mx-auto mb-4 bg-white border-2 border-black p-3 shadow-lg flex flex-col sm:flex-row items-center justify-between gap-3">
+        <!-- Brand Title -->
+        <div class="flex items-center gap-3">
+            <div class="w-8 h-8 bg-black flex items-center justify-center border border-black">
+                <span class="text-yellow-400 font-black text-sm">MAP</span>
+            </div>
+            <div>
+                <h1 class="text-sm font-black uppercase tracking-wider text-black leading-none">Campus Navigation System</h1>
+                <p class="text-[10px] font-bold text-gray-600">2nd Floor Layout & Academic Offices</p>
+            </div>
+        </div>
+
+        <!-- Search Bar -->
+        <div class="flex items-center gap-2 w-full sm:w-auto">
+            <div class="relative w-full sm:w-80">
+                <input 
+                    type="text" 
+                    id="searchInput" 
+                    placeholder="Search place (e.g. Computer Lab, VP Academic, Accountancy)..." 
+                    class="w-full px-3 py-2 text-xs font-black bg-yellow-50 text-black border-2 border-black focus:outline-none focus:bg-white placeholder-gray-500"
+                    oninput="handleSearch()"
+                />
+                <button 
+                    id="clearBtn" 
+                    onclick="clearSearch()" 
+                    class="hidden absolute right-2 top-1/2 -translate-y-1/2 text-[10px] bg-black text-yellow-400 font-black px-1.5 py-0.5 border border-black">
+                    CLEAR
+                </button>
+            </div>
+            <button onclick="resetView()" class="bg-black text-yellow-400 text-xs font-black px-3 py-2 border-2 border-black hover:bg-yellow-400 hover:text-black transition-colors uppercase">
+                Reset
+            </button>
+        </div>
+    </header>
+
+    <main class="w-full overflow-x-auto flex justify-center my-auto py-2">
+        
+        <!-- ABSOLUTE CANVAS CONTAINER -->
+        <div class="map-canvas" id="mapCanvas">
+
+            <!-- 1. TOP NAVIGATION BUTTONS & ROOM POINTER -->
+            <!-- PROCEED TO OSA -->
+             <a 
+                href="17thpage.html" 
+                class="yellow-action-btn" 
+                style="top: 25px; left: 35px; width: 110px; height: 32px; font-size: 9px;">
+                GO TO OSA
+            </a>
+            
+            <!-- ROOM 201-205 HERE -->
+            <a 
+                href="18thpage.html" 
+                class="yellow-action-btn" 
+                style="top: 25px; left: 205px; width: 110px; height: 32px; font-size: 8px;">
+                ROOM 201-205 HERE
+            </a>
+            
+            <!-- EMERGENCY EXIT -->
+            <div 
+                id="loc-emergency-exit" 
+                class="absolute font-black text-xs text-black tracking-wider uppercase cursor-pointer text-center" 
+                style="top: 25px; right: 40px; width: 120px;"
+                onclick="openLocationModal('EMERGENCY EXIT', 'Primary fire and emergency exit stairwell.')">
+                EMERGENCY<br>EXIT
+            </div>
+
+
+            <!-- 2. LEFT SIDE LABORATORIES -->
+            <!-- Computer Laboratory -->
+            <div 
+                id="loc-comp-lab" 
+                class="map-box" 
+                style="top: 105px; left: 35px; width: 135px; height: 225px; font-size: 11px;"
+                onclick="openLocationModal('Computer Laboratory', 'Primary computer laboratory facility equipped for hands-on programming and IT classes.')">
+                COMPUTER<br>LABORATORY
+            </div>
+
+            <!-- Internet Laboratory -->
+            <div 
+                id="loc-internet-lab" 
+                class="map-box" 
+                style="top: 335px; left: 35px; width: 135px; height: 250px; font-size: 11px;"
+                onclick="openLocationModal('Internet Laboratory', 'Internet and networking lab facility for web research and specialized online coursework.')">
+                INTERNET<br>LABORATORY
+            </div>
+
+
+            <!-- 3. CENTER STAIRS & NAVIGATION BUTTONS -->
+            <!-- Stairs to 3rd Floor -->
+            <div 
+                id="loc-stairs-3rd" 
+                class="map-box" 
+                style="top: 25px; left: 345px; width: 305px; height: 280px; font-size: 14px;"
+                onclick="openLocationModal('Stairs to 3rd Floor', 'Central stairwell providing access to 3rd floor classrooms and offices.')">
+                STAIRS TO 3<sup>RD</sup> FLOOR
+            </div>
+
+            <!-- PROCEED Button -->
+            <a 
+                href="11thpage.html" 
+                class="yellow-action-btn" 
+                style="top: 315px; left: 345px; width: 120px; height: 32px; font-size: 9px;">
+                GO TO 3RD FLOOR
+            </a>
+            
+            <!-- GO BACK Button (Shortcut directly linking to 2ndpage.html) -->
+            <a 
+                href="2ndpage.html" 
+                class="yellow-action-btn" 
+                style="top: 315px; left: 570px; width: 80px; height: 32px; font-size: 9px;">
+                GO BACK
+            </a>
+
+
+            <!-- 4. CENTER CORRIDOR AREA -->
+            <div 
+                id="loc-corridor-text"
+                class="absolute font-black text-2xl text-black tracking-[0.6em] text-center pointer-events-none" 
+                style="top: 425px; left: 200px; width: 600px;">
+                CORRIDOR
+            </div>
+
+
+            <!-- 5. BOTTOM OFFICES -->
+            <!-- Office of the VP for Academic Affairs -->
+            <div 
+                id="loc-vp-academic" 
+                class="map-box" 
+                style="top: 575px; left: 195px; width: 300px; height: 65px; font-size: 10px;"
+                onclick="openLocationModal('Office of the VP for Academic Affairs', 'Executive office handling academic policy, curriculum, and faculty administration.')">
+                OFFICE OF THE VP FOR ACADEMIC AFFAIRS
+            </div>
+
+            <!-- BSREM Department -->
+            <div 
+                id="loc-dept-bsrem" 
+                class="map-box" 
+                style="top: 575px; left: 500px; width: 300px; height: 65px; font-size: 10px;"
+                onclick="openLocationModal('BSREM Department', 'Department office for Real Estate Management program.')">
+                BSREM DEPARTMENT
+            </div>
+
+
+            <!-- 6. RIGHT SIDE OFFICES (STACKED) -->
+            <!-- PFMO Office -->
+            <div 
+                id="loc-pfmo" 
+                class="map-box" 
+                style="top: 105px; right: 40px; width: 140px; height: 62px; font-size: 9px;"
+                onclick="openLocationModal('PFMO Office', 'Physical Facilities Management Office responsible for campus infrastructure and maintenance.')">
+                PFMO OFFICE
+            </div>
+
+            <!-- College of Computer Studies Faculty -->
+            <div 
+                id="loc-ccs-faculty" 
+                class="map-box" 
+                style="top: 172px; right: 40px; width: 140px; height: 82px; font-size: 9px;"
+                onclick="openLocationModal('College of Computer Studies Faculty', 'Faculty consultation room and department office for CCS professors.')">
+                COLLEGE OF<br>COMPUTER STUDIES<br>FACULTY
+            </div>
+
+            <!-- College of Accountancy -->
+            <div 
+                id="loc-college-accountancy" 
+                class="map-box" 
+                style="top: 259px; right: 40px; width: 140px; height: 82px; font-size: 9px;"
+                onclick="openLocationModal('College of Accountancy', 'Faculty and administrative office for Accountancy students.')">
+                COLLEGE OF<br>ACCOUNTANCY
+            </div>
+
+            <!-- College of Business Administration -->
+            <div 
+                id="loc-college-cba" 
+                class="map-box" 
+                style="top: 346px; right: 40px; width: 140px; height: 82px; font-size: 9px;"
+                onclick="openLocationModal('College of Business Administration', 'Department office for Business Administration programs.')">
+                COLLEGE OF<br>BUSINESS<br>ADMINISTRATION
+            </div>
+
+            <!-- College of Criminal Justice -->
+            <div 
+                id="loc-college-ccje" 
+                class="map-box" 
+                style="top: 433px; right: 40px; width: 140px; height: 72px; font-size: 9px;"
+                onclick="openLocationModal('College of Criminal Justice', 'Department office for Criminal Justice students and faculty.')">
+                COLLEGE OF<br>CRIMINAL JUSTICE
+            </div>
+
+            <!-- College of Education -->
+            <div 
+                id="loc-college-educ" 
+                class="map-box" 
+                style="top: 510px; right: 40px; width: 140px; height: 75px; font-size: 9px;"
+                onclick="openLocationModal('College of Education', 'Department office for Education programs.')">
+                COLLEGE OF<br>EDUCATION
+            </div>
+
+        </div>
+    </main>
+
+    <!-- LOCATION DETAILS MODAL -->
+    <div id="infoModal" class="fixed inset-0 bg-black/75 backdrop-blur-sm hidden items-center justify-center p-4 z-50">
+        <div class="bg-yellow-400 border-3 border-black p-6 max-w-sm w-full relative shadow-2xl">
+            <div class="flex justify-between items-start mb-3 border-b-2 border-black pb-2">
+                <div>
+                    <span class="text-[9px] font-black bg-black text-yellow-400 px-2 py-0.5 uppercase">CAMPUS LOCATION</span>
+                    <h3 id="modalTitle" class="text-lg font-black uppercase text-black mt-1">Title</h3>
+                </div>
+                <button onclick="closeModal()" class="bg-black text-yellow-400 font-black text-xs px-2 py-1 border border-black hover:bg-white hover:text-black">✕</button>
+            </div>
+
+            <p id="modalDesc" class="text-xs font-bold text-black mb-5 leading-relaxed">
+                Description goes here.
+            </p>
+
+            <div class="bg-white border-2 border-black p-3 mb-4">
+                <span class="text-[10px] font-black text-gray-500 uppercase block">Proximity Status</span>
+                <span id="modalDist" class="text-xs font-black text-black">~ 2nd Floor Zone</span>
+            </div>
+
+            <div class="flex justify-end">
+                <button onclick="closeModal()" class="yellow-action-btn relative static w-full py-2">OK, GOT IT</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- PAGE ACTION MODAL -->
+    <div id="actionModal" class="fixed inset-0 bg-black/75 backdrop-blur-sm hidden items-center justify-center p-4 z-50">
+        <div class="bg-white border-3 border-black p-6 max-w-sm w-full relative shadow-2xl">
+            <div class="flex justify-between items-center mb-3 border-b-2 border-black pb-2">
+                <h3 id="actionModalTitle" class="text-base font-black uppercase text-black">Action</h3>
+                <button onclick="closeActionModal()" class="bg-black text-yellow-400 font-black text-xs px-2 py-1 border border-black">✕</button>
+            </div>
+
+            <div class="bg-yellow-100 border-2 border-black p-3 mb-4 text-xs font-bold text-black">
+                <p id="actionModalDesc">Redirecting to target view...</p>
+            </div>
+
+            <div class="flex justify-end">
+                <button onclick="closeActionModal()" class="yellow-action-btn relative static px-6 py-2">CONTINUE</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Search Registry for 2nd floor map locations
+        const places = [
+            { id: 'loc-room-201-205', name: 'ROOM 201-205' },
+            { id: 'loc-comp-lab', name: 'Computer Laboratory' },
+            { id: 'loc-internet-lab', name: 'Internet Laboratory' },
+            { id: 'loc-stairs-3rd', name: 'Stairs to 3rd Floor' },
+            { id: 'loc-vp-academic', name: 'Office of the VP for Academic Affairs' },
+            { id: 'loc-dept-bsrem', name: 'BSREM Department' },
+            { id: 'loc-pfmo', name: 'PFMO Office' },
+            { id: 'loc-ccs-faculty', name: 'College of Computer Studies Faculty' },
+            { id: 'loc-college-accountancy', name: 'College of Accountancy' },
+            { id: 'loc-college-cba', name: 'College of Business Administration' },
+            { id: 'loc-college-ccje', name: 'College of Criminal Justice' },
+            { id: 'loc-college-educ', name: 'College of Education' }
+        ];
+
+        // Search Functionality
+        function handleSearch() {
+            const query = document.getElementById('searchInput').value.trim().toLowerCase();
+            const clearBtn = document.getElementById('clearBtn');
+
+            if (query.length > 0) {
+                clearBtn.classList.remove('hidden');
+            } else {
+                clearBtn.classList.add('hidden');
+                resetView();
+                return;
+            }
+
+            places.forEach(place => {
+                const el = document.getElementById(place.id);
+                if (!el) return;
+
+                if (place.name.toLowerCase().includes(query)) {
+                    el.classList.add('search-highlight');
+                    el.classList.remove('dimmed');
+                } else {
+                    el.classList.remove('search-highlight');
+                    el.classList.add('dimmed');
+                }
+            });
+        }
+
+        function clearSearch() {
+            document.getElementById('searchInput').value = '';
+            document.getElementById('clearBtn').classList.add('hidden');
+            resetView();
+        }
+
+        function resetView() {
+            places.forEach(place => {
+                const el = document.getElementById(place.id);
+                if (el) {
+                    el.classList.remove('search-highlight', 'dimmed');
+                }
+            });
+        }
+
+        // Location Modal Controls
+        function openLocationModal(title, desc) {
+            document.getElementById('modalTitle').innerText = title;
+            document.getElementById('modalDesc').innerText = desc;
+
+            const modal = document.getElementById('infoModal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        function closeModal() {
+            const modal = document.getElementById('infoModal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+
+        // Action Modal Controls
+        function openActionModal(title, desc) {
+            document.getElementById('actionModalTitle').innerText = title;
+            document.getElementById('actionModalDesc').innerText = desc;
+
+            const modal = document.getElementById('actionModal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        function closeActionModal() {
+            const modal = document.getElementById('actionModal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+    </script>
+</body>
+</html>
